@@ -1,0 +1,10 @@
+flask
+pymupdf
+langchain
+faiss-cpu
+sentence-transformers
+tiktoken
+python-dotenv
+bert-score
+openai
+python-dotenv

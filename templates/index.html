@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chatbot Aviation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .hidden { display: none; }
+    .disabled-button {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    /* Custom styles for better mobile responsiveness */
+    @media (max-width: 640px) {
+      .input-container {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+      }
+      .chat-input {
+        min-width: 0; /* Allows input to shrink properly */
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+
+  <header class="bg-blue-700 text-white p-4 shadow-lg">
+    <div class="container mx-auto flex items-center space-x-3">
+      <div class="w-10 h-10 bg-transparent flex items-center justify-center">
+        <img src="../static/image.png" alt="Logo" class="w-16 h-16 object-contain bg-transparent">
+      </div>
+      <h1 class="text-xl font-bold">Chatbot Aviation</h1>
+    </div>
+  </header>
+  
+  <div class="h-1 flex">
+    <div class="flex-1 bg-blue-500"></div>
+    <div class="flex-1 bg-lime-500"></div>
+    <div class="flex-1 bg-red-500"></div>
+  </div>
+
+  <div class="flex-1 overflow-y-auto p-4 mt-6" id="chatContainer">
+    <div class="container mx-auto max-w-3xl space-y-4" id="chatMessages">
+      <div class="flex justify-start">
+        <div class="flex items-start space-x-2 max-w-lg">
+          <div class="w-8 h-8 flex items-center justify-center">
+            <img src="../static/image.png" alt="Logo" class="w-8 h-8 object-center">
+          </div>
+          <div class="pl-2 rounded-lg">
+            <p class="text-gray-800 text-justify">Hello! 👋 saya asisten QA Pompav. Tanya Saya terkait Pompav.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="p-4 input-container">
+    <div class="container mx-auto max-w-3xl">
+      <form id="chatForm" class="flex items-center gap-2 w-full">
+        <input id="userInput" 
+               type="text" 
+               placeholder="Ketik Pertanyaan..." 
+               class="flex-1 p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-lime-700 chat-input"
+               autocomplete="off"/>
+        <button id="submitButton" 
+                type="submit" 
+                class="w-12 h-12 flex-shrink-0 rounded-full bg-blue-700 text-white flex items-center justify-center hover:bg-lime-500 disabled:opacity-50 disabled:cursor-not-allowed">
+          <i id="sendIcon" class="fas fa-paper-plane"></i>
+          <i id="loadingIcon" class="fas fa-spinner fa-spin hidden"></i>
+          <i id="pauseIcon" class="fas fa-pause hidden"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+  
+  <div class="h-1 flex">
+    <div class="flex-1 bg-blue-500"></div>
+    <div class="flex-1 bg-lime-500"></div>
+    <div class="flex-1 bg-red-500"></div>
+  </div>
+
+  <script>
+    const chatForm = document.getElementById('chatForm');
+    const userInput = document.getElementById('userInput');
+    const chatMessages = document.getElementById('chatMessages');
+    const submitButton = document.getElementById('submitButton');
+    const sendIcon = document.getElementById('sendIcon');
+    const loadingIcon = document.getElementById('loadingIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+
+    let isProcessing = false;
+
+    // Adjust input width on resize
+    function adjustInputWidth() {
+      const formWidth = chatForm.offsetWidth;
+      const buttonWidth = submitButton.offsetWidth;
+      const padding = 8; // Total horizontal padding
+      userInput.style.maxWidth = `${formWidth - buttonWidth - padding}px`;
+    }
+
+    // Initial adjustment and on resize
+    window.addEventListener('load', adjustInputWidth);
+    window.addEventListener('resize', adjustInputWidth);
+
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (isProcessing) return;
+      
+      const message = userInput.value.trim();
+      if (!message) return;
+
+      isProcessing = true;
+      toggleButtonState(true);
+      
+      addMessage(message, 'user');
+      userInput.value = '';
+      addTyping();
+
+      try {
+        const res = await fetch('/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await res.json();
+        removeTyping();
+        addMessage(data.response, 'bot');
+      } catch (err) {
+        removeTyping();
+        addMessage('⚠️ Server error, please try again later.', 'bot');
+        console.error(err);
+      } finally {
+        isProcessing = false;
+        toggleButtonState(false);
+        // Focus input after processing
+        userInput.focus();
+      }
+    });
+
+    function toggleButtonState(processing) {
+      submitButton.disabled = processing;
+      if (processing) {
+        sendIcon.classList.add('hidden');
+        loadingIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+      } else {
+        loadingIcon.classList.add('hidden');
+        pauseIcon.classList.add('hidden');
+        sendIcon.classList.remove('hidden');
+      }
+    }
+
+    function addMessage(msg, sender) {
+      const isUser = sender === 'user';
+      const wrapper = document.createElement('div');
+      wrapper.className = `flex justify-${isUser ? 'end' : 'start'}`;
+
+      const content = document.createElement('div');
+      content.className = 'flex items-start space-x-2 mt-4';
+      content.style.flexDirection = isUser ? 'row-reverse' : 'row';
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = isUser 
+        ? 'pr-4 pl-4 bg-blue-500 text-white rounded-lg max-w-[90%]'
+        : 'pl-2 rounded-lg max-w-[90%]';
+
+      const messageText = document.createElement('p');
+      messageText.className = isUser 
+        ? 'text-left break-words whitespace-pre-wrap'
+        : 'text-gray-800 text-justify break-words whitespace-pre-wrap';
+      messageText.textContent = msg;
+
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const timeStamp = document.createElement('p');
+      timeStamp.className = isUser ? 'text-xs text-indigo-200 mt-2' : 'text-xs text-gray-500 mt-2';
+      timeStamp.textContent = timestamp;
+
+      messageDiv.appendChild(messageText);
+      messageDiv.appendChild(timeStamp);
+
+      const iconDiv = document.createElement('div');
+      iconDiv.className = isUser 
+        ? 'w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center ml-4 flex-shrink-0'
+        : 'w-8 h-8 flex items-center justify-center flex-shrink-0';
+const icon = document.createElement('i');
+
+if (isUser) {
+    icon.className = 'fas fa-user text-indigo-600';
+} else {
+    const img = document.createElement('img');
+    img.src = '../static/image.png';
+    img.alt = 'Logo';
+    img.className = 'w-8 h-8 object-center bg-transparent';
+    icon.appendChild(img); // Append the image to the icon element
+}
+
+      iconDiv.appendChild(icon);
+      content.appendChild(iconDiv);
+      content.appendChild(messageDiv);
+      wrapper.appendChild(content);
+      chatMessages.appendChild(wrapper);
+
+      // Scroll otomatis ke bawah setelah pesan ditambahkan
+      setTimeout(() => {
+        const chatContainer = document.getElementById('chatContainer');
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }, 100);
+    }
+
+    function addTyping() {
+      const typing = document.createElement('div');
+      typing.id = 'typingIndicator';
+      typing.className = 'flex justify-start mt-4';
+      typing.innerHTML = ` 
+        <div class="flex items-start space-x-2 max-w-[90%]">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+            <img src="../static/image.png" alt="Logo" class="w-8 h-8 object-center bg-transparent">
+          </div>
+          <div class="p-4 rounded-lg">
+            <div class="flex space-x-1">
+              <div class="w-2 h-2 rounded-full bg-blue-500 animate-bounce"></div>
+              <div class="w-2 h-2 rounded-full bg-lime-500 animate-bounce" style="animation-delay: .2s"></div>
+              <div class="w-2 h-2 rounded-full bg-red-500 animate-bounce" style="animation-delay: .4s"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      chatMessages.appendChild(typing);
+      
+      // Scroll ke bawah
+      setTimeout(() => {
+        const chatContainer = document.getElementById('chatContainer');
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }, 100);
+    }
+
+    function removeTyping() {
+      const typing = document.getElementById('typingIndicator');
+      if (typing) typing.remove();
+    }
+  </script>
+</body>
+</html>
